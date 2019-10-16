@@ -18,6 +18,7 @@ package io.cloudevents.kafka;
 import static java.util.Optional.ofNullable;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 
+import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.List;
 import java.util.Map;
@@ -178,6 +179,11 @@ public class CloudEventsKafkaProducer<K, A extends Attributes, T> implements
 	@Override
 	public void close(long arg0, TimeUnit arg1) {
 		producer.close(arg0, arg1);		
+	}
+
+	@Override
+	public void close(Duration duration) {
+
 	}
 
 	@Override

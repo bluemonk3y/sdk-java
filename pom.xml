@@ -60,6 +60,12 @@
       	    <id>fabiojose</id>
       	    <name>Fabio José de Moraes</name>
       	</developer>
+
+        <developer>
+            <id>bluemonk3y</id>
+            <name>Neil Avery</name>
+        </developer>
+
     </developers>
 
     <distributionManagement>
@@ -82,8 +88,8 @@
     <modules>
         <module>api</module>
         <module>cdi</module>
+        <module>kafka</module>
       	<module>http/vertx</module>
-      	<module>kafka</module>
     </modules>
 
     <properties>

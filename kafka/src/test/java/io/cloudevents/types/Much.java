@@ -9,6 +9,12 @@ public class Much {
 
 	private String wow;
 
+	public Much(String wow) {
+		this.wow = wow;
+	}
+	public Much(){
+	}
+
 	public String getWow() {
 		return wow;
 	}

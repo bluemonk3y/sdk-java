@@ -323,6 +323,11 @@ public class CloudEventsKafkaConsumer<K, A extends Attributes, T>
 	}
 
 	@Override
+	public void seek(TopicPartition topicPartition, OffsetAndMetadata offsetAndMetadata) {
+
+	}
+
+	@Override
 	public void seekToBeginning(Collection<TopicPartition> arg0) {
 		consumer.seekToBeginning(arg0);		
 	}

@@ -135,7 +135,7 @@ public class AttributesImpl implements Attributes {
 	 * Used by the Jackson framework to unmarshall.
 	 */
 	@JsonCreator
-	public static AttributesImpl build(
+	public static AttributesImpl  build(
 			@JsonProperty("id") String id,
 			@JsonProperty("source") URI source,
 			@JsonProperty("specversion") String specversion,

@@ -81,8 +81,8 @@ public class KafkaProducerBinaryTest {
 	public void beforeEach() {
 		data = Testing.Files.createTestingDirectory("cluster");
 		
-		int zk = Integer.parseInt(getProperty("zookeeper.port"));
-		int kf = Integer.parseInt(getProperty("kafka.port"));
+		int zk = 12000;//Integer.parseInt(getProperty("zookeeper.port", "12000"));
+		int kf = 11000;//Integer.parseInt(getProperty("kafka.port", "11000"));
 		
 		kafka = new KafkaCluster()
 				.usingDirectory(data)
