@@ -36,7 +36,7 @@ public class CeHeaderBinarySerializer<T> implements Serializer<T> {
   }
 
   @Override
-  public byte[] serialize(String topic, T cloudEvent) {
+  public byte[] serialize(String topic, T data) {
     throw new NotImplementedException();
   }
 

@@ -43,7 +43,6 @@ import org.apache.kafka.streams.kstream.KGroupedStream;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.Reducer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -173,7 +172,6 @@ public class CE_KafkaProducerBinaryTest {
     KStream<String, CloudEvent<AttributesImpl, Much>> inflight = builder.stream(testTopic, Consumed.with(new Serdes.StringSerde(), new CeBinarySerDes<>(Much.class)));
 
     inflight.filter((k,v) -> {
-      System.out.println("processing cloud events");
       return v.getData().get().getWow().contains("streaming");
     }).to(outputTopic, Produced.with(new Serdes.StringSerde(), new CeBinarySerDes<>(Much.class)));
 

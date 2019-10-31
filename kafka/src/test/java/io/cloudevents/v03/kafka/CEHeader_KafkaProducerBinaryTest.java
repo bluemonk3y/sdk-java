@@ -35,15 +35,22 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.KafkaStreams;
+import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.Consumed;
+import org.apache.kafka.streams.kstream.JoinWindows;
+import org.apache.kafka.streams.kstream.Joined;
 import org.apache.kafka.streams.kstream.KGroupedStream;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Reducer;
+import org.apache.kafka.streams.kstream.Transformer;
+import org.apache.kafka.streams.kstream.TransformerSupplier;
+import org.apache.kafka.streams.kstream.ValueJoiner;
+import org.apache.kafka.streams.processor.ProcessorContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,8 +62,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.kafka.test.StreamsTestUtils.getStreamsConfig;
 import static org.junit.jupiter.api.Assertions.*;
@@ -196,7 +205,6 @@ public class CEHeader_KafkaProducerBinaryTest {
 
       ConsumerRecord<String, Much> actual = records.iterator().next();
 
-
       assertGoodness(ce, actual);
     }
   }
@@ -204,9 +212,10 @@ public class CEHeader_KafkaProducerBinaryTest {
 
   @Test
   @SkipLongRunning
-  public void passCeAttributesThroughKStreamsAggregate() throws Exception {
+  public void passCeAttributesThroughKStreamsJoin() throws Exception {
     // setup
-    CloudEventImpl<Much> ce = getMuchCloudEvent("streaming!");
+    CloudEventImpl<Much> ce = getMuchCloudEvent("111");
+    CloudEventImpl<Much> ce2 = getMuchCloudEvent("222");
 
     final String testTopic = "cloud.events.binary.topic.test";
     final String outputTopic = "cloud.events.binary.topic.streamed.topic";
@@ -215,16 +224,13 @@ public class CEHeader_KafkaProducerBinaryTest {
 
     Properties consumerProperties = kafka.useTo().getConsumerProperties("consumer", "consumer.id", OffsetResetStrategy.EARLIEST);
 
-    try (
-            KafkaProducer<String, CloudEvent<AttributesImpl, Much>> ceProducer = new KafkaProducer<String, CloudEvent<AttributesImpl, Much>>(producerProperties, new StringSerializer(), new CeHeaderBinarySerializer())) {
+    try (KafkaProducer<String, CloudEvent<AttributesImpl, Much>> ceProducer = new KafkaProducer<String, CloudEvent<AttributesImpl, Much>>(producerProperties, new StringSerializer(), new CeHeaderBinarySerializer())) {
 
-      ProducerRecord<String, CloudEvent<AttributesImpl, Much>> record = getProducerRecordWithCloudEvent(testTopic, ce);
-//      ceProducer.send(record).get();
-//      ceProducer.send(record).get();
-      RecordMetadata metadata = ceProducer.send(record).get();
+      ProducerRecord<String, CloudEvent<AttributesImpl, Much>> record1 = getProducerRecordWithCloudEvent(testTopic+".1", ce);
+      ProducerRecord<String, CloudEvent<AttributesImpl, Much>> record2 = getProducerRecordWithCloudEvent(testTopic+".2", ce);
+      ceProducer.send(record1);
+      ceProducer.send(record2);
       ceProducer.flush();
-
-      log.info("Meta:" + metadata);
     }
 
     /**
@@ -232,21 +238,31 @@ public class CEHeader_KafkaProducerBinaryTest {
      */
     StreamsBuilder builder = new StreamsBuilder();
 
-    KStream<String, Much> inflight = builder.stream(testTopic, Consumed.with(new Serdes.StringSerde(), new CeHeaderBinarySerDes<>(Much.class)));
+    KStream<String, Much> leftStream = builder.stream(testTopic+".1", Consumed.with(new Serdes.StringSerde(), new CeHeaderBinarySerDes<>(Much.class)));
+    KStream<String, Much> rightStream = builder.stream(testTopic+".2", Consumed.with(new Serdes.StringSerde(), new CeHeaderBinarySerDes<>(Much.class)));
 
-    KGroupedStream<String, Much> groupedStream = inflight.groupByKey();
-    KTable<String, Much> reduce = groupedStream.reduce((value1, value2) -> {
-      System.out.println("\n\t\t\t ========= Reducing:" + value1);
-      return value2;
-    });
-    reduce.toStream().to(outputTopic, Produced.with(new Serdes.StringSerde(), new CeHeaderBinarySerDes<>(Much.class)));
+    KStream<String, Much> joined = leftStream.join(rightStream, new ValueJoiner<Much, Much, Much>() {
+
+      @Override
+      public Much apply(Much value1, Much value2) {
+        System.out.println("-------> JOINING");
+        return new Much(value1.getWow() + ":" + value2.getWow());
+      }
+    }, JoinWindows.of(TimeUnit.MINUTES.toSeconds(1)),
+            Joined.with(
+                    Serdes.String(), /* key */
+                    new CeHeaderBinarySerDes<>(Much.class),   /* left value */
+                    new CeHeaderBinarySerDes<>(Much.class))  /* right value */
+    );
+
+    joined.to(outputTopic, Produced.with(new Serdes.StringSerde(), new CeHeaderBinarySerDes<>(Much.class)));
 
     Topology topology = builder.build();
     System.out.println(topology.describe());
     KafkaStreams streams = new KafkaStreams(topology, getStreamsConfigForTest());
     streams.start();
 
-    Thread.sleep(1000);
+    Thread.sleep(2000);
 
 
     try (KafkaConsumer<String, Much> consumer = new KafkaConsumer<>(consumerProperties,
@@ -259,6 +275,7 @@ public class CEHeader_KafkaProducerBinaryTest {
       System.out.println("============================= DONE =============================");
 
       ConsumerRecord<String, Much> actual = records.iterator().next();
+      System.out.println("RECEIVED:" + actual.value());
       assertGoodness(ce, actual);
 
 
